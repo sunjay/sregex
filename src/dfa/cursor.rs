@@ -29,25 +29,3 @@ impl<'a> DfaState<'a> {
         self.dfa.state(self.current)
     }
 }
-
-/// A mutable cursor into a DFA
-#[derive(Debug)]
-pub struct DfaStateMut<'a> {
-    dfa: &'a mut Dfa,
-    current: StateId,
-}
-
-impl<'a> DfaStateMut<'a> {
-    pub(super) fn new(dfa: &'a mut Dfa, current: StateId) -> Self {
-        Self {dfa, current}
-    }
-
-    /// Mark this state as an accept state
-    pub fn mark_accept(&mut self) {
-        self.state_mut().accept = true;
-    }
-
-    fn state_mut(&mut self) -> &mut State {
-        self.dfa.state_mut(self.current)
-    }
-}

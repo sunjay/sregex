@@ -9,12 +9,14 @@ impl Regex {
     pub fn parse(pattern: &[u8]) -> Self {
         let mut dfa = dfa::Dfa::default();
 
-        let mut curr = dfa.start_mut();
-        for ch in pattern {
-            todo!()
+        let mut curr = dfa.start_id();
+        for &ch in pattern {
+            let next_state = dfa.push_state();
+            dfa.state_mut(curr).add_transition(ch, next_state);
+            curr = next_state;
         }
         // Mark the last state we get to as the acceptance state
-        curr.mark_accept();
+        dfa.state_mut(curr).mark_accept();
 
         Self {dfa}
     }
@@ -35,5 +37,21 @@ mod tests {
         assert!(re.match_bytes(b""));
         assert!(!re.match_bytes(b"a"));
         assert!(!re.match_bytes(b"abc"));
+    }
+
+    #[test]
+    fn single_byte_regex() {
+        let re = Regex::parse(b"a");
+        assert!(!re.match_bytes(b""));
+        assert!(re.match_bytes(b"a"));
+        assert!(!re.match_bytes(b"abc"));
+    }
+
+    #[test]
+    fn multi_byte_regex() {
+        let re = Regex::parse(b"abc");
+        assert!(!re.match_bytes(b""));
+        assert!(!re.match_bytes(b"a"));
+        assert!(re.match_bytes(b"abc"));
     }
 }

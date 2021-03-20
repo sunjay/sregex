@@ -9,14 +9,42 @@ pub use cursor::*;
 type InputChar = u8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct StateId(u16);
+pub struct StateId(u16);
 
-#[derive(Debug, Default, Clone)]
-struct State {
+#[derive(Debug, Clone)]
+pub struct State {
+    id: StateId,
     /// if true, a string will be accepted if it ends at this state
     accept: bool,
     /// The next states that can be visted from this state and the input that leads to them
     next_states: HashMap<InputChar, StateId>,
+}
+
+impl State {
+    pub fn new(id: StateId) -> Self {
+        Self {
+            id,
+            accept: false,
+            next_states: HashMap::default(),
+        }
+    }
+
+    pub fn add_transition(&mut self, input: InputChar, next_state: StateId) {
+        assert!(
+            !self.next_states.contains_key(&input),
+            "bug: transition to state `{:?}` from state `{:?}` via input `{}` would overwite an existing transition",
+            self.id,
+            next_state,
+            input as char,
+        );
+
+        self.next_states.insert(input, next_state);
+    }
+
+    /// Mark this state as an accept state
+    pub fn mark_accept(&mut self) {
+        self.accept = true;
+    }
 }
 
 /// Deterministic finite automata
@@ -30,9 +58,10 @@ pub struct Dfa {
 
 impl Default for Dfa {
     fn default() -> Self {
-        Self {
-            states: vec![State::default()],
-        }
+        let mut dfa = Self {states: Vec::new()};
+        // Must have at least one state. First state is the start state.
+        dfa.push_state();
+        dfa
     }
 }
 
@@ -43,14 +72,8 @@ impl Dfa {
         DfaState::new(self, self.start_id())
     }
 
-    /// Returns a mutable cursor to the start state of the DFA
-    pub fn start_mut(&mut self) -> DfaStateMut {
-        assert!(!self.states.is_empty());
-        DfaStateMut::new(self, self.start_id())
-    }
-
     /// Returns the ID of the start state
-    fn start_id(&self) -> StateId {
+    pub fn start_id(&self) -> StateId {
         // Start state is always the first state
         StateId(0)
     }
@@ -68,19 +91,26 @@ impl Dfa {
         curr.is_accepted()
     }
 
-    fn push_state(&mut self) -> StateId {
-        let id = self.states.len();
-        self.states.push(State::default());
-        StateId(id.try_into().expect("DFAs with more than u16::MAX states are not supported"))
+    /// Pushes a new empty state into the DFA and returns its ID
+    pub fn push_state(&mut self) -> StateId {
+        let next_index = self.states.len();
+        let id = StateId(next_index.try_into()
+            .expect("DFAs with more than u16::MAX states are not supported"));
+
+        self.states.push(State::new(id));
+
+        id
     }
 
-    fn state(&self, id: StateId) -> &State {
+    /// Get a state based on its ID
+    pub fn state(&self, id: StateId) -> &State {
         let StateId(index) = id;
         // Safety: StateId is guaranteed to be a valid index by construction
         unsafe { self.states.get_unchecked(index as usize) }
     }
 
-    fn state_mut(&mut self, id: StateId) -> &mut State {
+    /// Gets a mutable state based on its ID
+    pub fn state_mut(&mut self, id: StateId) -> &mut State {
         let StateId(index) = id;
         // Safety: StateId is guaranteed to be a valid index by construction
         unsafe { self.states.get_unchecked_mut(index as usize) }
